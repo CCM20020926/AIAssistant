@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { chatStream } from '@/utils/sse'
+import { getMessages } from '@/api/conversation'
 import { useConversationStore } from './conversation'
 
 export const useChatStore = defineStore('chat', {
@@ -12,13 +13,28 @@ export const useChatStore = defineStore('chat', {
   }),
 
   actions: {
-    loadMessages(conversationId) {
-      // messages are loaded from backend when switching conversations
-      // for now, clear local state
+    async loadMessages(conversationId) {
       this.messages = []
       this.streamingContent = ''
       this.thinkingContent = ''
       this.streaming = false
+
+      if (!conversationId) return
+
+      const res = await getMessages(conversationId)
+      this.messages = (res.data || []).map(msg => {
+        let thinking
+        if (msg.meta) {
+          try { thinking = JSON.parse(msg.meta).thinking } catch {}
+        }
+        return {
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          thinking,
+          createdAt: msg.createdAt
+        }
+      })
     },
 
     async sendMessage(content, options = {}) {
@@ -69,12 +85,10 @@ export const useChatStore = defineStore('chat', {
             convStore.currentId = data.conversationId
             convStore.prependConversation({
               id: data.conversationId,
-              title: content.trim().substring(0, 30),
+              title: content.trim().substring(0, 15),
               mode: 'chat',
               updatedAt: new Date().toISOString()
             })
-          } else if (data.conversationId) {
-            convStore.updateTitle(data.conversationId, content.trim().substring(0, 30))
           }
 
           this.streaming = false

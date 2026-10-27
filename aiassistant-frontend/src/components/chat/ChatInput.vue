@@ -1,5 +1,11 @@
 <template>
   <div class="chat-input-area">
+    <div class="input-switches">
+      <el-switch v-model="options.deepThink" active-text="深度思考" size="small" />
+      <el-switch v-model="options.webSearch" active-text="联网搜索" size="small" />
+      <el-switch v-model="options.pptMode" active-text="PPT" size="small" :disabled="true" />
+      <el-switch v-model="options.knowledgeMode" active-text="知识库" size="small" :disabled="true" />
+    </div>
     <div class="input-wrapper">
       <el-input
         v-model="inputText"
@@ -34,18 +40,24 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { Promotion, VideoPause } from '@element-plus/icons-vue'
 import { useChatStore } from '@/store'
 
 const chatStore = useChatStore()
 const inputText = ref('')
+const options = reactive({
+  deepThink: false,
+  webSearch: false,
+  pptMode: false,
+  knowledgeMode: false
+})
 
 function handleSend() {
   const text = inputText.value.trim()
   if (!text || chatStore.streaming) return
 
-  chatStore.sendMessage(text)
+  chatStore.sendMessage(text, { ...options })
   inputText.value = ''
 }
 </script>
@@ -55,6 +67,13 @@ function handleSend() {
   padding: 16px 20px;
   background: #fff;
   border-top: 1px solid #e8e8e8;
+}
+.input-switches {
+  display: flex;
+  gap: 16px;
+  max-width: 800px;
+  margin: 0 auto 10px;
+  align-items: center;
 }
 .input-wrapper {
   display: flex;

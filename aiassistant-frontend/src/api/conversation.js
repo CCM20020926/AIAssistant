@@ -13,3 +13,9 @@ export function deleteConversation(id) {
 export function renameConversation(id, title) {
   return request.put(`/api/conversation/${id}/title`, { title })
 }
+
+export function getMessages(conversationId, lastMsgId, size = 50) {
+  return request.get(`/api/conversation/${conversationId}/messages`, {
+    params: { lastMsgId, size }
+  })
+}

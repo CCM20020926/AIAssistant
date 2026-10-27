@@ -5,10 +5,13 @@ import com.aiassistant.common.entity.Conversation;
 import com.aiassistant.common.exception.BusinessException;
 import com.aiassistant.common.result.ErrorCode;
 import com.aiassistant.agent.mapper.ConversationMapper;
+import com.aiassistant.agent.mapper.MessageMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -16,11 +19,12 @@ import java.util.List;
 public class ConversationService {
 
     private final ConversationMapper conversationMapper;
+    private final MessageMapper messageMapper;
 
     public String createConversation(Long userId, String firstMessage) {
         Conversation conv = new Conversation();
         conv.setUserId(userId);
-        conv.setTitle(truncateTitle(firstMessage));
+        conv.setTitle("新对话");
         conv.setMode("chat");
         conv.setStatus(1);
         conversationMapper.insert(conv);
@@ -57,7 +61,9 @@ public class ConversationService {
         if (conv == null || !conv.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND);
         }
-        conversationMapper.updateStatus(id, 2);
+
+        messageMapper.deleteByConversationId(id);
+        conversationMapper.deleteById(id);
     }
 
     public void rename(Long id, Long userId, String title) {
@@ -65,13 +71,28 @@ public class ConversationService {
         if (conv == null || !conv.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.CONVERSATION_NOT_FOUND);
         }
-        conversationMapper.updateTitle(id, title);
+
+        Conversation update = new Conversation();
+        update.setTitle(title);
+        update.setUpdatedAt(LocalDateTime.now());
+
+        LambdaUpdateWrapper<Conversation> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Conversation::getId, id);
+
+        conversationMapper.update(update, wrapper);
     }
 
     public void updateTitleIfNeeded(Long id, String firstMessage) {
         Conversation conv = conversationMapper.selectById(id);
         if (conv != null && "新对话".equals(conv.getTitle())) {
-            conversationMapper.updateTitle(id, truncateTitle(firstMessage));
+            Conversation update = new Conversation();
+            update.setTitle(truncateTitle(firstMessage));
+            update.setUpdatedAt(LocalDateTime.now());
+
+            LambdaUpdateWrapper<Conversation> wrapper = new LambdaUpdateWrapper<>();
+            wrapper.eq(Conversation::getId, id);
+
+            conversationMapper.update(update, wrapper);
         }
     }
 
@@ -86,6 +107,6 @@ public class ConversationService {
 
     private String truncateTitle(String text) {
         if (text == null) return "新对话";
-        return text.length() > 30 ? text.substring(0, 30) + "..." : text;
+        return text.length() > 15 ? text.substring(0, 15) + "..." : text;
     }
 }
