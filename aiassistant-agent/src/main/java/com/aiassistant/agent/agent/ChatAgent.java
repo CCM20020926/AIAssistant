@@ -13,7 +13,6 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-//import org.springframework.ai.dashscope.DashScopeChatOptions;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -54,12 +53,9 @@ public class ChatAgent {
 
         Prompt prompt = new Prompt(messages, options);
 
-        ChatResponse resp = chatModel.call(prompt);
-        log.debug("sync resp: {}", resp);
-
         return chatModel.stream(prompt)
                 .doOnSubscribe(s -> log.debug("ChatAgent: chatModel.stream subscribed"))
-                .doOnCancel(() -> log.warn("ChatAgent: chatModel.stream subscription cancelled"))
+                .doOnCancel(() -> log.info("ChatAgent: chatModel.stream subscription cancelled"))
                 .doOnError(e -> log.error("ChatAgent: chatModel.stream error", e))
                 .doOnComplete(() -> log.debug("ChatAgent: chatModel.stream completed"))
                 .flatMapIterable(response -> {
