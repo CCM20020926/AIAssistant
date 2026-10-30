@@ -38,4 +38,11 @@ public class ConversationController {
         conversationService.rename(id, userId, body.get("title"));
         return R.ok();
     }
+
+    @GetMapping("/list-by-kb")
+    public R<List<ConversationDTO>> listByKnowledgeBase(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long knowledgeBaseId) {
+        return R.ok(conversationService.listByKnowledgeBase(userId, knowledgeBaseId));
+    }
 }

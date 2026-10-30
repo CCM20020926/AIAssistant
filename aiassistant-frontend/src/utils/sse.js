@@ -52,3 +52,47 @@ export function chatStream(params, callbacks) {
 
   return ctrl
 }
+
+/**
+ * Authenticated GET Server-Sent Events subscription.
+ * Uses fetch-event-source (not native EventSource) so the Authorization header
+ * can be sent. `url` is a path relative to the API base URL.
+ *
+ * @param {string} url SSE endpoint path
+ * @param {{onMessage?: (evt:{event:string,data:any})=>void, onError?: (e:Error)=>void}} handlers
+ * @returns {{close: () => void}}
+ */
+export function createAuthedEventSource(url, { onMessage, onError } = {}) {
+  const ctrl = new AbortController()
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+
+  fetchEventSource(`${baseUrl}${url}`, {
+    headers: {
+      'Accept': 'text/event-stream',
+      'Authorization': `Bearer ${getToken()}`
+    },
+    signal: ctrl.signal,
+
+    onmessage(ev) {
+      let data
+      try {
+        data = JSON.parse(ev.data)
+      } catch {
+        data = ev.data
+      }
+      onMessage?.({ event: ev.event || 'message', data })
+    },
+
+    onerror(err) {
+      onError?.(err)
+      // Rethrow so fetch-event-source stops retrying; caller decides when to reconnect.
+      throw err
+    }
+  }).catch(() => {})
+
+  return {
+    close() {
+      ctrl.abort()
+    }
+  }
+}

@@ -23,11 +23,14 @@ public class ChatService {
     private final MessageService messageService;
 
     public Flux<ServerSentEvent<ChatStreamResponse>> streamChat(Long userId, ChatRequest request) {
+        Long knowledgeBaseId = parseKnowledgeBaseId(request.getKnowledgeBaseId());
+
         String conversationId = request.getConversationId();
         if (conversationId == null || conversationId.isBlank()) {
-            conversationId = conversationService.createConversation(userId, request.getContent());
+            conversationId = conversationService.createConversation(userId, request.getContent(), knowledgeBaseId);
         } else {
             conversationService.getById(Long.valueOf(conversationId));
+            conversationService.bindKnowledgeBaseIfAbsent(Long.valueOf(conversationId), knowledgeBaseId);
         }
 
         final String finalConvId = conversationId;
@@ -85,5 +88,17 @@ public class ChatService {
                             .data(errorEvent)
                             .build());
                 });
+    }
+
+    private Long parseKnowledgeBaseId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Invalid knowledgeBaseId in chat request: {}", raw);
+            return null;
+        }
     }
 }

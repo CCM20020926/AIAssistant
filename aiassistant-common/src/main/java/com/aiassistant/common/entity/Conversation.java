@@ -15,6 +15,7 @@ public class Conversation {
     private Long userId;
     private String title;
     private String mode;
+    private Long knowledgeBaseId;
     private Integer status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

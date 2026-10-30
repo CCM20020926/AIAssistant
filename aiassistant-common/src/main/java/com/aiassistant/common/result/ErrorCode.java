@@ -17,7 +17,12 @@ public enum ErrorCode {
     LOGIN_FAILED(1002, "用户名或密码错误"),
     USER_DISABLED(1003, "账号已被禁用"),
     CONVERSATION_NOT_FOUND(2001, "会话不存在"),
-    MESSAGE_SAVE_FAILED(2002, "消息保存失败");
+    MESSAGE_SAVE_FAILED(2002, "消息保存失败"),
+    KNOWLEDGE_BASE_EXISTS(3001, "知识库名称已存在"),
+    KNOWLEDGE_BASE_NOT_FOUND(3002, "知识库不存在"),
+    DOCUMENT_NOT_FOUND(3003, "文档不存在"),
+    DOCUMENT_PARSE_FAILED(3004, "文档解析失败"),
+    FILE_UPLOAD_FAILED(3005, "文件上传失败");
 
     private final int code;
     private final String message;

@@ -29,16 +29,18 @@ CREATE TABLE IF NOT EXISTS `user` (
 -- 会话表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `conversation` (
-    `id`         BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    `user_id`    BIGINT UNSIGNED  NOT NULL COMMENT '所属用户',
-    `title`      VARCHAR(256)     NOT NULL DEFAULT '新对话' COMMENT '会话标题',
-    `mode`       VARCHAR(32)      NOT NULL DEFAULT 'chat' COMMENT 'chat/web_search/ppt/knowledge',
-    `status`     TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '1-活跃 0-归档 2-删除',
-    `created_at` DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `user_id`           BIGINT UNSIGNED  NOT NULL COMMENT '所属用户',
+    `title`             VARCHAR(256)     NOT NULL DEFAULT '新对话' COMMENT '会话标题',
+    `mode`              VARCHAR(32)      NOT NULL DEFAULT 'chat' COMMENT 'chat/web_search/ppt/knowledge',
+    `knowledge_base_id` BIGINT UNSIGNED  DEFAULT NULL COMMENT '关联知识库ID',
+    `status`            TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '1-活跃 0-归档 2-删除',
+    `created_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_user_updated` (`user_id`, `status`, `updated_at` DESC),
-    KEY `idx_user_created` (`user_id`, `created_at` DESC)
+    KEY `idx_user_created` (`user_id`, `created_at` DESC),
+    KEY `idx_knowledge_base` (`knowledge_base_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会话表';
 
 -- ============================================================
@@ -63,44 +65,57 @@ CREATE TABLE IF NOT EXISTS `message` (
 -- ============================================================
 -- 知识库表
 -- ============================================================
-CREATE TABLE IF NOT EXISTS `knowledge_base` (
-    `id`          BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    `user_id`     BIGINT UNSIGNED  NOT NULL COMMENT '所属用户',
-    `name`        VARCHAR(128)     NOT NULL COMMENT '知识库名称',
-    `description` VARCHAR(512)     DEFAULT NULL COMMENT '描述',
-    `doc_count`   INT UNSIGNED     NOT NULL DEFAULT 0 COMMENT '文档数量（冗余计数）',
-    `status`      TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '1-正常 0-删除',
-    `created_at`  DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`  DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_user_status` (`user_id`, `status`, `created_at` DESC)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识库表';
+CREATE TABLE knowledge_base (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT NOT NULL COMMENT '所属用户ID',
+    name        VARCHAR(100) NOT NULL COMMENT '知识库名称',
+    description VARCHAR(500) DEFAULT NULL COMMENT '知识库描述',
+    doc_count   INT DEFAULT 0 COMMENT '关联文档数量',
+    status      TINYINT DEFAULT 1 COMMENT '1=正常 0=已删除',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_user_name (user_id, name),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识库表';
 
 -- ============================================================
--- 文档表（双归属：conversation_id 或 knowledge_base_id 二选一）
+-- 文档表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `document` (
     `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
     `user_id`           BIGINT UNSIGNED  NOT NULL,
-    `conversation_id`   BIGINT UNSIGNED  DEFAULT NULL COMMENT '对话上传时填写',
-    `knowledge_base_id` BIGINT UNSIGNED  DEFAULT NULL COMMENT '知识库上传时填写',
-    `file_name`         VARCHAR(256)     NOT NULL COMMENT '原始文件名',
-    `file_url`          VARCHAR(512)     NOT NULL COMMENT 'MinIO 地址',
-    `file_size`         BIGINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '文件大小(bytes)',
+    `knowledge_base_id` BIGINT UNSIGNED  NOT NULL COMMENT '所属知识库',
+    `name`              VARCHAR(256)     NOT NULL COMMENT '原始文件名',
     `file_type`         VARCHAR(16)      NOT NULL COMMENT 'pdf/docx/txt/md',
-    `parse_status`      VARCHAR(32)      NOT NULL DEFAULT 'pending' COMMENT 'pending/parsing/done/failed',
+    `file_size`         BIGINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '文件大小(bytes)',
+    `minio_path`        VARCHAR(512)     NOT NULL COMMENT 'MinIO 对象路径',
+    `parse_status`      TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-待解析 1-解析中 2-已完成 3-失败',
+    `parse_error`       TEXT             DEFAULT NULL COMMENT '解析错误信息',
     `chunk_count`       INT UNSIGNED     NOT NULL DEFAULT 0 COMMENT '分块数量',
     `created_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_kb_status` (`knowledge_base_id`, `parse_status`),
-    KEY `idx_conv` (`conversation_id`),
-    KEY `idx_user` (`user_id`, `created_at` DESC),
-    CONSTRAINT `chk_doc_belonging` CHECK (
-        (`conversation_id` IS NOT NULL AND `knowledge_base_id` IS NULL) OR
-        (`conversation_id` IS NULL AND `knowledge_base_id` IS NOT NULL)
-    )
+    KEY `idx_user` (`user_id`, `created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档表';
+
+-- ============================================================
+-- 文档分块表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `document_chunk` (
+    `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `document_id`       BIGINT UNSIGNED  NOT NULL COMMENT '所属文档',
+    `knowledge_base_id` BIGINT UNSIGNED  NOT NULL COMMENT '所属知识库',
+    `chunk_index`       INT UNSIGNED     NOT NULL COMMENT '分块序号',
+    `content_preview`   VARCHAR(500)     DEFAULT NULL COMMENT '内容预览(前500字符)',
+    `minio_path`        VARCHAR(512)     NOT NULL COMMENT 'MinIO 分块文件路径',
+    `token_count`       INT UNSIGNED     DEFAULT 0 COMMENT 'token 数量',
+    `created_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_document` (`document_id`, `chunk_index`),
+    KEY `idx_kb` (`knowledge_base_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档分块表';
 
 -- ============================================================
 -- PPT 任务表

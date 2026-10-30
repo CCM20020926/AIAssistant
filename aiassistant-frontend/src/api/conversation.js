@@ -19,3 +19,9 @@ export function getMessages(conversationId, lastMsgId, size = 50) {
     params: { lastMsgId, size }
   })
 }
+
+export function getConversationsByKnowledgeBase(knowledgeBaseId) {
+  return request.get('/api/conversation/list-by-kb', {
+    params: { knowledgeBaseId }
+  })
+}

@@ -21,14 +21,33 @@ public class ConversationService {
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
 
-    public String createConversation(Long userId, String firstMessage) {
+    public String createConversation(Long userId, String firstMessage, Long knowledgeBaseId) {
         Conversation conv = new Conversation();
         conv.setUserId(userId);
         conv.setTitle("新对话");
         conv.setMode("chat");
         conv.setStatus(1);
+        conv.setKnowledgeBaseId(knowledgeBaseId);
         conversationMapper.insert(conv);
         return String.valueOf(conv.getId());
+    }
+
+    public void bindKnowledgeBaseIfAbsent(Long conversationId, Long knowledgeBaseId) {
+        if (knowledgeBaseId == null) {
+            return;
+        }
+        Conversation conv = conversationMapper.selectById(conversationId);
+        if (conv == null || conv.getKnowledgeBaseId() != null) {
+            return;
+        }
+        Conversation update = new Conversation();
+        update.setKnowledgeBaseId(knowledgeBaseId);
+        update.setUpdatedAt(LocalDateTime.now());
+
+        LambdaUpdateWrapper<Conversation> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Conversation::getId, conversationId);
+
+        conversationMapper.update(update, wrapper);
     }
 
     public List<ConversationDTO> listConversations(Long userId, Long lastId, int size) {
@@ -96,11 +115,24 @@ public class ConversationService {
         }
     }
 
+    public List<ConversationDTO> listByKnowledgeBase(Long userId, Long knowledgeBaseId) {
+        LambdaQueryWrapper<Conversation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Conversation::getUserId, userId)
+               .eq(Conversation::getKnowledgeBaseId, knowledgeBaseId)
+               .eq(Conversation::getStatus, 1)
+               .orderByDesc(Conversation::getUpdatedAt);
+
+        return conversationMapper.selectList(wrapper).stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
     private ConversationDTO toDTO(Conversation conv) {
         ConversationDTO dto = new ConversationDTO();
         dto.setId(conv.getId());
         dto.setTitle(conv.getTitle());
         dto.setMode(conv.getMode());
+        dto.setKnowledgeBaseId(conv.getKnowledgeBaseId());
         dto.setUpdatedAt(conv.getUpdatedAt());
         return dto;
     }

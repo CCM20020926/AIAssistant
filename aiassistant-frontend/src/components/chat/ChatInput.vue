@@ -1,10 +1,20 @@
 <template>
   <div class="chat-input-area">
+    <div v-if="options.knowledgeMode" class="knowledge-actions">
+      <el-button size="small" @click="createDialog.open()">
+        <el-icon><Plus /></el-icon> 新建知识库
+      </el-button>
+      <el-upload :show-file-list="false" :before-upload="handleUpload" accept=".pdf,.docx,.md,.txt">
+        <el-button size="small">
+          <el-icon><Upload /></el-icon> 上传文档
+        </el-button>
+      </el-upload>
+    </div>
     <div class="input-switches">
       <el-switch v-model="options.deepThink" active-text="深度思考" size="small" />
       <el-switch v-model="options.webSearch" active-text="联网搜索" size="small" />
       <el-switch v-model="options.pptMode" active-text="PPT" size="small" :disabled="true" />
-      <el-switch v-model="options.knowledgeMode" active-text="知识库" size="small" :disabled="true" />
+      <el-switch v-model="options.knowledgeMode" active-text="知识库" size="small" />
     </div>
     <div class="input-wrapper">
       <el-input
@@ -36,16 +46,23 @@
     <div class="input-footer">
       <span class="hint">Enter 发送，Shift+Enter 换行</span>
     </div>
+    <KnowledgeBasePanel v-if="options.knowledgeMode" />
+    <CreateKnowledgeBaseDialog ref="createDialog" @created="onKnowledgeBaseCreated" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { Promotion, VideoPause } from '@element-plus/icons-vue'
-import { useChatStore } from '@/store'
+import { ref, reactive, watch, onUnmounted } from 'vue'
+import { Promotion, VideoPause, Plus, Upload } from '@element-plus/icons-vue'
+import { useChatStore, useKnowledgeStore } from '@/store'
+import { ElMessage } from 'element-plus'
+import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog.vue'
+import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 
 const chatStore = useChatStore()
+const knowledgeStore = useKnowledgeStore()
 const inputText = ref('')
+const createDialog = ref(null)
 const options = reactive({
   deepThink: false,
   webSearch: false,
@@ -53,12 +70,45 @@ const options = reactive({
   knowledgeMode: false
 })
 
+watch(() => options.knowledgeMode, (on) => {
+  if (on) {
+    knowledgeStore.fetchList()
+    knowledgeStore.connectNotifications()
+  } else {
+    knowledgeStore.stopPolling()
+    knowledgeStore.disconnectNotifications()
+  }
+})
+
+onUnmounted(() => {
+  knowledgeStore.stopPolling()
+  knowledgeStore.disconnectNotifications()
+})
+
 function handleSend() {
   const text = inputText.value.trim()
   if (!text || chatStore.streaming) return
 
-  chatStore.sendMessage(text, { ...options })
+  chatStore.sendMessage(text, { ...options, knowledgeBaseId: knowledgeStore.currentId })
   inputText.value = ''
+}
+
+async function handleUpload(file) {
+  if (!knowledgeStore.currentId) {
+    ElMessage.warning('请先选择一个知识库')
+    return false
+  }
+  try {
+    await knowledgeStore.upload(file, knowledgeStore.currentId)
+    ElMessage.success('上传成功，解析中...')
+  } catch (e) {
+    ElMessage.error('上传失败')
+  }
+  return false
+}
+
+function onKnowledgeBaseCreated() {
+  knowledgeStore.fetchList()
 }
 </script>
 
@@ -67,6 +117,12 @@ function handleSend() {
   padding: 16px 20px;
   background: #fff;
   border-top: 1px solid #e8e8e8;
+}
+.knowledge-actions {
+  display: flex;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto 10px;
 }
 .input-switches {
   display: flex;
