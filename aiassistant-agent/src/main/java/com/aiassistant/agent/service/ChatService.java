@@ -1,6 +1,7 @@
 package com.aiassistant.agent.service;
 
 import com.aiassistant.agent.agent.ChatAgent;
+import com.aiassistant.agent.agent.KnowledgeRAGAgent;
 import com.aiassistant.common.dto.ChatRequest;
 import com.aiassistant.common.dto.ChatStreamResponse;
 import com.aiassistant.common.dto.MessageDTO;
@@ -19,6 +20,7 @@ import java.util.List;
 public class ChatService {
 
     private final ChatAgent chatAgent;
+    private final KnowledgeRAGAgent knowledgeRAGAgent;
     private final ConversationService conversationService;
     private final MessageService messageService;
 
@@ -41,7 +43,17 @@ public class ChatService {
 
         StringBuilder fullAssistantContent = new StringBuilder();
 
-        return chatAgent.stream(context, request)
+        Flux<ChatStreamResponse> agentStream;
+        if (request.isKnowledgeMode() && knowledgeBaseId != null) {
+            log.debug("ChatService routing to KnowledgeRAGAgent: kbId={}", knowledgeBaseId);
+            agentStream = knowledgeRAGAgent.stream(context, request);
+        } else {
+            log.debug("ChatService routing to ChatAgent: knowledgeMode={}, kbId={}",
+                    request.isKnowledgeMode(), knowledgeBaseId);
+            agentStream = chatAgent.stream(context, request);
+        }
+
+        return agentStream
                 .doOnSubscribe(s -> log.debug("ChatService: chatAgent.stream subscribed"))
                 .doOnCancel(() -> log.warn("ChatService: chatAgent.stream subscription cancelled"))
                 .doOnNext(event -> log.debug("ChatService: received event type={}", event.getType()))
