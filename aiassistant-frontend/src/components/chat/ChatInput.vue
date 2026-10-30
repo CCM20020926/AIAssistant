@@ -89,6 +89,11 @@ function handleSend() {
   const text = inputText.value.trim()
   if (!text || chatStore.streaming) return
 
+  if (options.knowledgeMode && !knowledgeStore.currentId) {
+    ElMessage.warning('请先选择一个知识库')
+    return
+  }
+
   chatStore.sendMessage(text, { ...options, knowledgeBaseId: knowledgeStore.currentId })
   inputText.value = ''
 }

@@ -15,6 +15,7 @@ export function chatStream(params, callbacks) {
     },
     body: JSON.stringify(params),
     signal: ctrl.signal,
+    openWhenHidden: true,
 
     onmessage(ev) {
       let data
@@ -72,6 +73,7 @@ export function createAuthedEventSource(url, { onMessage, onError } = {}) {
       'Authorization': `Bearer ${getToken()}`
     },
     signal: ctrl.signal,
+    openWhenHidden: true,
 
     onmessage(ev) {
       let data
