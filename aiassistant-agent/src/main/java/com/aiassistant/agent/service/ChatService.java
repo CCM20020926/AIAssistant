@@ -2,6 +2,7 @@ package com.aiassistant.agent.service;
 
 import com.aiassistant.agent.agent.ChatAgent;
 import com.aiassistant.agent.agent.KnowledgeRAGAgent;
+import com.aiassistant.agent.agent.WebSearchAgent;
 import com.aiassistant.common.dto.ChatRequest;
 import com.aiassistant.common.dto.ChatStreamResponse;
 import com.aiassistant.common.dto.MessageDTO;
@@ -21,6 +22,7 @@ public class ChatService {
 
     private final ChatAgent chatAgent;
     private final KnowledgeRAGAgent knowledgeRAGAgent;
+    private final WebSearchAgent webSearchAgent;
     private final ConversationService conversationService;
     private final MessageService messageService;
 
@@ -47,9 +49,12 @@ public class ChatService {
         if (request.isKnowledgeMode() && knowledgeBaseId != null) {
             log.debug("ChatService routing to KnowledgeRAGAgent: kbId={}", knowledgeBaseId);
             agentStream = knowledgeRAGAgent.stream(context, request);
+        } else if (request.isWebSearch()) {
+            log.debug("ChatService routing to WebSearchAgent");
+            agentStream = webSearchAgent.stream(context, request);
         } else {
-            log.debug("ChatService routing to ChatAgent: knowledgeMode={}, kbId={}",
-                    request.isKnowledgeMode(), knowledgeBaseId);
+            log.debug("ChatService routing to ChatAgent: knowledgeMode={}, kbId={}, webSearch={}",
+                    request.isKnowledgeMode(), knowledgeBaseId, request.isWebSearch());
             agentStream = chatAgent.stream(context, request);
         }
 
