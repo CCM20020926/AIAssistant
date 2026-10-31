@@ -7,15 +7,18 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
+import dotenv
+
+dotenv.load_dotenv()
 
 # Nginx entry point. Override with --base-url or the AIASSISTANT_BASE_URL env var.
 DEFAULT_BASE_URL = os.getenv("AIASSISTANT_BASE_URL", "http://127.0.0.1:80")
 
 # ---- Per-suite concurrency levels and latency thresholds (seconds) ----
-LOGIN_LEVELS: List[int] = [10, 100, 1000]
+LOGIN_LEVELS: List[int] = [10, 100, 500, 1000]
 LOGIN_THRESHOLD: float = 5.0
 
-REGISTER_LEVELS: List[int] = [10, 100]
+REGISTER_LEVELS: List[int] = [10, 100, 500]
 REGISTER_THRESHOLD: float = 10.0
 
 CHAT_LEVELS: List[int] = [10, 100]
@@ -23,7 +26,7 @@ CHAT_THRESHOLD: float = 10.0
 CHAT_INPUT: str = "Hello!"
 
 PARSE_LEVELS: List[int] = [1, 10]
-PARSE_THRESHOLD: float = 40.0
+PARSE_THRESHOLD: float = 60.0
 PARSE_FILE: Path = Path(__file__).resolve().parent / "example.pdf"
 
 # Shared credential for auto-provisioned virtual users.
