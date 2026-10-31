@@ -40,10 +40,14 @@ build/
 .DS_Store
 
 .env
+.pids/
+logs/
+*.log
+.npmrc
 
+**/venv/
 **/dist/
 **/node_modules
 **/pnpm-lock.yaml
 **/pnpm-workspace.yaml
 **/package-lock.json
-**/venv/
